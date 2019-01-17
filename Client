@@ -1,0 +1,120 @@
+import java.io.*;
+import java.net.*;
+import java.awt.*;
+import java.awt.event.*;
+import javax.swing.*;
+
+public class Client extends JFrame {
+	private JTextField userText;//This is the area where the text is typed into
+	private JTextArea chatWindow;//This displays the entire conversation
+	private ObjectOutputStream output;//Sends messages to the other user
+	private ObjectInputStream input;//Receives messages from the other user
+	private String message = "";//
+	private String serverIP;//IP Address of the person you're talking to
+	private Socket connection;
+	
+	//constructor
+	public Client(String host){
+		super("Client Program");
+		serverIP = host;
+		userText = new JTextField();
+		userText.setEditable(false);//Cannot edit until a user connects
+		userText.addActionListener(
+				new ActionListener(){
+					public void actionPerformed(ActionEvent event){
+						sendMessage(event.getActionCommand());//whatever is inside text area and sends it to other person
+						userText.setText("");//makes it blank
+						
+					}
+				}
+				);
+		add(userText, BorderLayout.SOUTH);//Makes the text appear at the bottom of the screen 
+		chatWindow = new JTextArea();
+		add(new JScrollPane(chatWindow), BorderLayout.CENTER);//Allows us to scroll up and down the ScrollPane
+		setSize(400,200);
+		setVisible(true);
+	}
+	//connect to server
+	public void startRunning(){
+		try{
+			connectToServer();
+			setupStreams();
+			whileChatting();
+		}catch(EOFException eofException){
+			showMessage("\n Client has exited");
+		}catch(IOException ioException){
+			ioException.printStackTrace();
+		}finally{
+			closeConversation();
+		}
+	}
+	//connect to server
+	private void connectToServer() throws IOException{
+		showMessage("Attemption connection... \n");
+		connection = new Socket(InetAddress.getByName(serverIP),6789);//Connects the IP address and port number
+		showMessage("Connected to:" + connection.getInetAddress().getHostName());
+		
+	}
+	//set up streams to send and receive messages
+	private void setupStreams() throws IOException{
+		output = new ObjectOutputStream(connection.getOutputStream());
+		output.flush();//cleans up any stuff still leftover. 
+		input = new ObjectInputStream(connection.getInputStream());
+		showMessage("\n Dude you're streams are now good to go \n");
+	}
+	//while chatting with server
+	private void whileChatting() throws IOException{
+		ableToType(true);
+		do{
+			try{
+				message = (String) input.readObject();
+				showMessage("\n" + message);
+				
+			}catch(ClassNotFoundException classNotfoundException){
+				showMessage("\n ERROR: UNKNOWN OBJECT TYPE!");
+			}
+		}while(!message.equals("SERVER - END"));
+	}
+	//close the streams and sockets
+	private void closeConversation(){
+		showMessage("\n closing crap down...");
+		ableToType(false);
+		try{
+			output.close();
+			input.close();
+			connection.close();
+		}catch(IOException ioException){
+			ioException.printStackTrace();
+		}
+	}
+	//send messages to the server
+	private void sendMessage(String message){
+		try{
+			output.writeObject("CLIENT - "+ message);
+			output.flush();
+			showMessage("\n CLIENT - "+ message);
+		}catch(IOException ioException){
+			chatWindow.append("\n something went wrong sending the message");
+		}
+	}
+	//change/update chatWindow
+	private void showMessage(final String m){
+		SwingUtilities.invokeLater( 
+				new Runnable(){
+					public void run(){
+						chatWindow.append(m);
+					}
+				}
+				);
+	}
+	//gives user permission to type crap into the text box
+	private void ableToType(final boolean tof){
+		SwingUtilities.invokeLater( 
+			new Runnable(){
+				public void run(){
+					userText.setEditable(tof);
+					}
+				}
+				);
+	}
+}
