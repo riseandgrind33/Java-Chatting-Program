@@ -1,0 +1,8 @@
+import javax.swing.JFrame;
+public class ServerTest {
+	public static void main(String[] args){
+		Server Rainbow = new Server();//Object that can access everything in the class
+		Rainbow.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);//Closes when presses X
+		Rainbow.startRunning();//Begins the Server programming
+	}
+}
