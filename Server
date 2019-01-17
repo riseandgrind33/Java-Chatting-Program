@@ -1,0 +1,129 @@
+import java.io.*;
+import java.net.*;
+import java.awt.*;
+import java.awt.event.*;
+import javax.swing.*;
+
+public class Server extends JFrame {
+
+	private JTextField userText;//The area where you type in message
+	private JTextArea chatWindow;//Displays the conversation
+	private ObjectOutputStream output;//This is where you send the message through
+	private ObjectInputStream input;//This is how you get the message from the user
+	private ServerSocket server;//This is used to help setup the server
+	private Socket connection;//Socket=connection
+
+	//constructor
+	public Server(){//The GUI
+		super("DC Alilonu's Instant Messenger");
+		userText = new JTextField();
+		userText.setEditable(false);//Not allowed to type anything until there is someone lese logged in
+		userText.addActionListener( 
+				new ActionListener(){
+					public void actionPerformed(ActionEvent event){//this method is called once the user types something in and presses enter
+						sendMessage(event.getActionCommand());//the object in there the string that we typed into that textField and sends it to the user.
+						userText.setText("");//This resets to blank and waits for the user to send more text
+					}
+				}
+				);
+		add(userText, BorderLayout.SOUTH);//adds it to the screen, this sits on the bottom of the Window
+		chatWindow = new JTextArea();//This shows ALL the messages
+		add(new JScrollPane(chatWindow));//Adds it to the screen
+		setSize(500,450);//This sets the size
+		setVisible(true);//Makes all of this visible
+	}
+	
+	//sets up and run the server
+	public void startRunning(){
+		try{
+			server = new ServerSocket(6789, 100/*How many people are allowed in the server*/);//The Location of the program...the portnumber, the amount of people that can sit and wait on the port
+			while(true){
+				try{
+					//connect and have conversation the user
+					waitForConnection();
+					setupStreams();
+					whileChatting();
+				}catch(EOFException eofException){
+					showMessage("\n Server has lost connection!");
+				}
+			}
+		}catch(IOException ioException){
+			ioException.printStackTrace();
+		}finally{
+			cleanHouse();
+		}
+	}
+	//wait for connection, then display connection information
+	private void waitForConnection() throws IOException{
+		showMessage("Program is working! Waiting for connection...\n");
+		connection = server.accept();//You do this over and over again until a socket/connection is made
+		showMessage(" Now connected to "+connection.getInetAddress().getHostAddress());
+
+	}
+	//get stream to send and receive data
+	private void setupStreams() throws IOException{
+		output = new ObjectOutputStream(connection.getOutputStream());//creates a pathway to the computer
+		output.flush();//hosuekeeping. Deals with buffers, and sometimes Data gets leftover. Flush/push the crap through the other person.
+		input = new ObjectInputStream(connection.getInputStream());//sets up a pathway to receive stuff 
+		showMessage("\n The streams are now set up! \n");
+	} 
+	
+	//during the chat conversation
+	private void whileChatting() throws IOException{
+		String  message = "You are now connected! ";
+		sendMessage(message);
+		ableToType(true);//allows user to type into the textbox
+		do{			
+			//have a conversation
+			try{
+				message = (String) input.readObject();//tries to read the message
+				showMessage("\n"+ message);
+			}catch(ClassNotFoundException classNotFoundException){//used if something unsendable is sent
+				showMessage("\n Unsendable message! Please try something else!");
+			}
+		}while(!message.equals("The Client has left"));
+	}
+	//close al the streams and sockets after you are done chatting
+	private void cleanHouse(){//Good programming practice
+		showMessage("\n Closing connections...\n");
+		ableToType(false);//User no longer able to type
+		try{
+			output.close();
+			input.close();
+			connection.close();
+		}catch(IOException ioException){
+			ioException.printStackTrace();//Shows the error message
+		}
+	}
+	//send a message to client
+	private void sendMessage(String message){
+		try{
+			output.writeObject("SERVER - "+ message);//sends the message through the output stream
+			output.flush();
+			showMessage("\nSERVER - "+ message);
+		}catch(IOException ioException){
+			chatWindow.append("\n ERROR: SOMETHING WENT WRONG \n");
+		}
+	}
+	//updates the chatWindow
+	private void showMessage(final String text){
+		SwingUtilities.invokeLater(//Allows a thread to be created that updates the GUI constantly(the text)
+				new Runnable(){
+					public void run(){
+						chatWindow.append(text);//adds message to end of document, and updates the chatwindow
+					}
+				}
+				);
+	}
+	//let the user type stuff into their box
+	private void ableToType(final boolean tof){
+		SwingUtilities.invokeLater(
+				new Runnable(){
+					public void run(){
+						 userText.setEditable(tof);
+					}
+				}
+			);
+	}
+	
+}
